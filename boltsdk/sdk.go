@@ -3,10 +3,14 @@ package boltsdk
 import (
 	"log"
 
+	"github.com/TeamFairmont/boltshared/config"
 	"github.com/TeamFairmont/boltshared/mqwrapper"
 	"github.com/TeamFairmont/boltshared/validation"
 	"github.com/TeamFairmont/gabs"
 )
+
+// HaltCallCommandName is the nextCommand name that tells the engine to stop processing a call
+const HaltCallCommandName = "HALT_CALL"
 
 var enableLogOutput bool
 
@@ -22,14 +26,14 @@ type WorkerFunc func(*gabs.Container) error
 
 // RunWorker sets up an AMQP channel, then spins up a worker goroutine
 // using the options and work function
-func RunWorker(mq *mqwrapper.Connection, commandName string, wf WorkerFunc) error {
+func RunWorker(mq *mqwrapper.Connection, queuePrefix string, commandName string, wf WorkerFunc) error {
 	logOut("Starting worker for", commandName)
 
 	//set base QoS parms
 	ch, _ := mq.Connection.Channel()
 
 	//connect to the proper mq consumer for this command
-	q, res, err := mqwrapper.CreateConsumeNamedQueue(commandName, ch)
+	q, res, err := mqwrapper.CreateConsumeNamedQueue(queuePrefix+commandName, ch)
 	_ = q
 	if err != nil {
 		return err
@@ -49,21 +53,21 @@ func RunWorker(mq *mqwrapper.Connection, commandName string, wf WorkerFunc) erro
 				err := wf(payload)
 				if err != nil {
 					logOut("err:", commandName, err)
-					pushError(commandName, err)
+					PushError(mq, queuePrefix, commandName, err.Error())
 				}
 
 				//validate payload structure
 				err = validate.CheckPayloadStructure(payload)
 				if err != nil {
 					logOut("err:", commandName, err)
-					pushError(commandName, err)
+					PushError(mq, queuePrefix, commandName, err.Error())
 				}
 
 				//push our response to the temp mq replyTo path
-				err = mqwrapper.PublishCommand(ch, d.CorrelationId, d.ReplyTo, payload, "")
+				err = mqwrapper.PublishCommand(ch, d.CorrelationId, "", d.ReplyTo, payload, "")
 				if err != nil {
 					logOut("err:", commandName, err)
-					pushError(commandName, err)
+					PushError(mq, queuePrefix, commandName, err.Error())
 				}
 
 			}
@@ -83,6 +87,10 @@ func logOut(v ...interface{}) {
 	}
 }
 
-func pushError(commandName string, err error) {
-	//TODO
+// PushError sends an error back up to the MQ for the bolt engine to log
+func PushError(mq *mqwrapper.Connection, queuePrefix, commandName, errorDetails string) error {
+	ed, _ := gabs.ParseJSON([]byte("{}"))
+	ed.SetP(errorDetails, "details")
+	ed.SetP(commandName, "command")
+	return mqwrapper.PublishCommand(mq.Channel, "", queuePrefix, config.ErrorQueueName, ed, "")
 }
