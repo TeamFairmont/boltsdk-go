@@ -28,7 +28,7 @@ Code example:
     		os.Exit(1)
     	}
 
-        boltsdk.RunWorker(mq, "fetchPage", fetchPage)
+        boltsdk.RunWorker(mq, "", "fetchPage", fetchPage)
 
         log.Println("Worker setup complete, waiting for commands... ")
 
