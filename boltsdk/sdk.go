@@ -1,6 +1,8 @@
 package boltsdk
 
 import (
+	"github.com/TeamFairmont/amqp"
+	"time"
 	"log"
 
 	"github.com/TeamFairmont/boltshared/config"
@@ -43,7 +45,7 @@ func RunWorker(mq *mqwrapper.Connection, queuePrefix string, commandName string,
 	go func() {
 		for d := range res {
 			//fire off a go routine so multiple calls of the same command do not need to wait
-			go func() {
+			go func(d amqp.Delivery) {
 				logOut(commandName, "in")
 
 				//grab the message body and parse to json obj
@@ -68,15 +70,19 @@ func RunWorker(mq *mqwrapper.Connection, queuePrefix string, commandName string,
 					//push our response to the temp mq replyTo path
 					err = mqwrapper.PublishCommand(ch, d.CorrelationId, "", d.ReplyTo, payload, "")
 					if err != nil {
-						logOut("err:", commandName, err)
-						PushError(mq, queuePrefix, commandName, err.Error())
+						time.Sleep(110000)
+						err = mqwrapper.PublishCommand(ch, d.CorrelationId, "", d.ReplyTo, payload, "")
+						if err != nil{
+							logOut("derror:", commandName, err)
+							PushError(mq, queuePrefix, commandName, err.Error())
+						}
 					}
 
 				}
 
 				d.Ack(false) //tell mq we've handled the message
 				logOut(commandName, "out")
-			}()
+			}(d)
 		}
 	}()
 
