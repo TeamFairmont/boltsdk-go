@@ -45,6 +45,7 @@ func RunWorker(mq *mqwrapper.Connection, queuePrefix string, commandName string,
 	go func() {
 		for d := range res {
 			//fire off a go routine so multiple calls of the same command do not need to wait
+			//d of type amqp.Delivery must be passed in, so the next call will be safe
 			go func(d amqp.Delivery) {
 				logOut(commandName, "in")
 
@@ -82,7 +83,7 @@ func RunWorker(mq *mqwrapper.Connection, queuePrefix string, commandName string,
 
 				d.Ack(false) //tell mq we've handled the message
 				logOut(commandName, "out")
-			}(d)
+			}(d)//passing in d of type amqp.Delivery and the end of the go routine
 		}
 	}()
 
