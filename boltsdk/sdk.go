@@ -42,6 +42,7 @@ func RunWorker(mq *mqwrapper.Connection, queuePrefix string, commandName string,
 	// spin up the goroutine to process work
 	go func() {
 		for d := range res {
+			//fire off a go routine so multiple calls of the same command do not need to wait
 			go func() {
 				logOut(commandName, "in")
 
