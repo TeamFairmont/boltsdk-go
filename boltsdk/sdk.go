@@ -1,9 +1,9 @@
 package boltsdk
 
 import (
-	"github.com/TeamFairmont/amqp"
-	"time"
 	"log"
+
+	"github.com/TeamFairmont/amqp"
 
 	"github.com/TeamFairmont/boltshared/config"
 	"github.com/TeamFairmont/boltshared/mqwrapper"
@@ -44,7 +44,7 @@ func RunWorker(mq *mqwrapper.Connection, queuePrefix string, commandName string,
 	// spin up the goroutine to process work
 	go func() {
 		for d := range res {
-			//fire off a go routine so multiple calls of the same command do not need to wait
+			//start a goroutine so multiple calls of the same command can run asynchronously
 			//d of type amqp.Delivery must be passed in, so the next call will be safe
 			go func(d amqp.Delivery) {
 				logOut(commandName, "in")
@@ -71,19 +71,15 @@ func RunWorker(mq *mqwrapper.Connection, queuePrefix string, commandName string,
 					//push our response to the temp mq replyTo path
 					err = mqwrapper.PublishCommand(ch, d.CorrelationId, "", d.ReplyTo, payload, "")
 					if err != nil {
-						time.Sleep(110000)
-						err = mqwrapper.PublishCommand(ch, d.CorrelationId, "", d.ReplyTo, payload, "")
-						if err != nil{
-							logOut("derror:", commandName, err)
-							PushError(mq, queuePrefix, commandName, err.Error())
-						}
+						logOut("err:", commandName, err)
+						PushError(mq, queuePrefix, commandName, err.Error())
 					}
 
 				}
 
 				d.Ack(false) //tell mq we've handled the message
 				logOut(commandName, "out")
-			}(d)//passing in d of type amqp.Delivery and the end of the go routine
+			}(d) //passing in d of type amqp.Delivery and the end of the go routine
 		}
 	}()
 
