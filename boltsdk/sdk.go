@@ -1,7 +1,6 @@
 package boltsdk
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/TeamFairmont/amqp"
@@ -39,7 +38,7 @@ type WorkerFunc func(*gabs.Container) error
 func RunWorkerCTX(w WorkerCTX) error {
 	err := RunWorker(w.MQ, w.QueuePrefix, w.CommandName, w.WorkerFunc)
 	if err != nil {
-		logOut("Error running worker from RunWorkerCTX",w.CommandName, err)
+		logOut("Error running worker from RunWorkerCTX", w.CommandName, err)
 		return nil
 	}
 	return nil
