@@ -1,6 +1,7 @@
 package boltsdk
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/TeamFairmont/amqp"
@@ -10,6 +11,14 @@ import (
 	"github.com/TeamFairmont/boltshared/validation"
 	"github.com/TeamFairmont/gabs"
 )
+
+//WorkerCTX holds the context to start a bolt worker
+type WorkerCTX struct {
+	MQ          *mqwrapper.Connection
+	QueuePrefix string
+	CommandName string
+	WorkerFunc  WorkerFunc
+}
 
 // HaltCallCommandName is the nextCommand name that tells the engine to stop processing a call
 const HaltCallCommandName = "HALT_CALL"
@@ -25,6 +34,16 @@ func EnableLogOutput(output bool) {
 // WorkerFunc is the user-function type used to process work
 // Needs to take a gabs Payload container
 type WorkerFunc func(*gabs.Container) error
+
+// RunWorkerCTX will take a workerCTX and run the bolt worker
+func RunWorkerCTX(w WorkerCTX) error {
+	err := RunWorker(w.MQ, w.QueuePrefix, w.CommandName, w.WorkerFunc)
+	if err != nil {
+		logOut("Error running worker from RunWorkerCTX",w.CommandName, err)
+		return nil
+	}
+	return nil
+}
 
 // RunWorker sets up an AMQP channel, then spins up a worker goroutine
 // using the options and work function
